@@ -1,6 +1,3 @@
 flask
-pandas
-openpyxl
-flask
 flask-cors
 pandas
