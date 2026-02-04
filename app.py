@@ -6,22 +6,18 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# Sabse pehle file dhoondne ka logic
-def get_csv_file():
-    # Jo tune file upload ki hai uska exact naam yaha likho
-    possible_names = ['aadhar(1).xlsx - Sheet1.csv', 'data.csv', 'aadhar.csv']
-    for name in possible_names:
-        if os.path.exists(name):
-            return name
-    return None
-
-FILE_NAME = get_csv_file()
+# Jo naam tumne bataya, wahi yahan likh diya hai
+FILE_NAME = 'aadhar(1).xlsx - Sheet1.csv'
 
 def load_data():
-    if FILE_NAME:
+    if os.path.exists(FILE_NAME):
         try:
-            return pd.read_csv(FILE_NAME, dtype=str)
-        except:
+            # CSV read kar rahe hain
+            df = pd.read_csv(FILE_NAME, dtype=str)
+            # Column names ke extra space khatam karne ke liye
+            df.columns = df.columns.str.strip()
+            return df
+        except Exception as e:
             return None
     return None
 
@@ -29,22 +25,36 @@ df = load_data()
 
 @app.route('/')
 def home():
-    return jsonify({"status": "Online", "file_found": FILE_NAME is not None, "owner": "ARYAN"})
+    file_status = "Found" if os.path.exists(FILE_NAME) else "Not Found"
+    return jsonify({
+        "status": "Online",
+        "database_file": file_status,
+        "owner": "ARYAN"
+    })
 
 @app.route('/search')
 def api_search():
     num_query = request.args.get('num', '').strip()
+    
     if not num_query:
-        return jsonify({"error": "Num missing"}), 400
+        return jsonify({"SUCCESS": False, "error": "Number missing"}), 400
 
     if df is None:
-        return jsonify({"developer": "ARYAN", "error": "Database not found", "debug": "Check file name on GitHub"}), 500
+        return jsonify({
+            "SUCCESS": False, 
+            "error": "Database not found",
+            "check_file": FILE_NAME
+        }), 500
 
-    # phoneNumber column mein search
+    # Search in phoneNumber column
+    # contains() use kiya hai taaki agar number ke aage peeche space ho toh bhi mil jaye
     results = df[df['phoneNumber'].str.contains(num_query, na=False)]
 
+    if results.empty:
+        return jsonify({"SUCCESS": False, "results": [], "msg": "No record found"})
+
     return jsonify({
-        "SUCCESS": True if not results.empty else False,
+        "SUCCESS": True,
         "results": results.to_dict(orient="records"),
         "developer": "ARYAN"
     })
