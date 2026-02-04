@@ -6,16 +6,22 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# CSV file ka naam (Ensure GitHub pe yahi naam ho)
-FILE_NAME = 'aadhar(1).xlsx - Sheet1.csv'
+# Sabse pehle file dhoondne ka logic
+def get_csv_file():
+    # Jo tune file upload ki hai uska exact naam yaha likho
+    possible_names = ['aadhar(1).xlsx - Sheet1.csv', 'data.csv', 'aadhar.csv']
+    for name in possible_names:
+        if os.path.exists(name):
+            return name
+    return None
+
+FILE_NAME = get_csv_file()
 
 def load_data():
-    if os.path.exists(FILE_NAME):
+    if FILE_NAME:
         try:
-            # CSV load kar rahe hain strings ki tarah
-            df = pd.read_csv(FILE_NAME, dtype=str)
-            return df
-        except Exception as e:
+            return pd.read_csv(FILE_NAME, dtype=str)
+        except:
             return None
     return None
 
@@ -23,36 +29,22 @@ df = load_data()
 
 @app.route('/')
 def home():
-    return jsonify({
-        "status": "System Online",
-        "owner": "ARYAN",
-        "usage": "/search?num=your_number"
-    })
+    return jsonify({"status": "Online", "file_found": FILE_NAME is not None, "owner": "ARYAN"})
 
 @app.route('/search')
 def api_search():
     num_query = request.args.get('num', '').strip()
-    
     if not num_query:
-        return jsonify({"error": "Provide 'num' parameter", "developer": "ARYAN"}), 400
+        return jsonify({"error": "Num missing"}), 400
 
     if df is None:
-        return jsonify({"error": "Database not found", "developer": "ARYAN"}), 500
+        return jsonify({"developer": "ARYAN", "error": "Database not found", "debug": "Check file name on GitHub"}), 500
 
     # phoneNumber column mein search
     results = df[df['phoneNumber'].str.contains(num_query, na=False)]
 
-    if results.empty:
-        return jsonify({
-            "SUCCESS": False,
-            "results": [], 
-            "count": 0, 
-            "developer": "ARYAN"
-        })
-
     return jsonify({
-        "SUCCESS": True,
+        "SUCCESS": True if not results.empty else False,
         "results": results.to_dict(orient="records"),
-        "count": len(results),
         "developer": "ARYAN"
     })
